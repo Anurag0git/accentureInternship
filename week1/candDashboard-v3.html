@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Performance Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #ffffff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 20px;
+        }
+
+        .upload-section {
+            background: rgba(255, 107, 53, 0.15);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 15px 35px rgba(255, 107, 53, 0.2);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 107, 53, 0.8);
+            border-radius: 15px;
+            padding: 20px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ff6b35;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            backdrop-filter: blur(10px);
+        }
+
+        .file-input-button:hover {
+            background: rgba(255, 107, 53, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 53, 0.3);
+        }
+
+        #processJson:hover {
+            background: rgba(255, 107, 53, 1);
+            transform: translateY(-2px);
+        }
+
+        .file-status {
+            margin-top: 15px;
+            font-weight: 500;
+        }
+
+        .dashboard {
+            display: none;
+            animation: fadeIn 0.8s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 20px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 107, 53, 0.2);
+            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(40%, 1fr));
+            gap: 25px;
+            align-items: start;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .chart-container.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .chart-container:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #ff6b35;
+            text-align: center;
+        }
+
+        .error-message {
+            background: rgba(238, 90, 36, 0.2);
+            color: #ff6b35;
+            padding: 15px;
+            border-radius: 15px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(238, 90, 36, 0.3);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+            color: #ff6b35;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Candidate Performance Dashboard</h1>
+            <p>Upload your candidate data to generate interactive visualizations and insights</p>
+        </div>
+
+        <div class="upload-section">
+            <h3>📁 Upload Candidate Data</h3>
+            <p>Select your JSON file containing candidate information</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" accept=".json,.txt" />
+                <label for="fileInput" class="file-input-button">
+                    📎 Choose JSON File
+                </label>
+            </div>
+            <div class="file-status" id="fileStatus">No file selected</div>
+            
+            <!-- Alternative: Manual JSON Input -->
+            <div style="margin-top: 20px;">
+                <p style="margin-bottom: 10px;">Or paste your JSON data directly:</p>
+                <textarea id="jsonInput" placeholder="Paste your JSON data here..." style="width: 100%; height: 120px; padding: 15px; border-radius: 10px; border: 2px dashed rgba(255, 107, 53, 0.5); background: rgba(255, 255, 255, 0.1); color: white; font-family: monospace; backdrop-filter: blur(10px);"></textarea>
+                <button id="processJson" style="margin-top: 10px; padding: 10px 20px; background: rgba(255, 107, 53, 0.8); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Process JSON Data</button>
+            </div>
+        </div>
+
+        <div class="dashboard" id="dashboard">
+            <div class="stats-grid" id="statsGrid">
+                <!-- Stats will be populated here -->
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-title">📊 Application Status Pipeline</div>
+                    <div id="statusFunnel"></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">💰 Salary vs Experience Analysis</div>
+                    <div id="salaryScatter"></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">🏢 Department Distribution</div>
+                    <div id="departmentChart"></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">🌍 Geographic Distribution</div>
+                    <div id="geoChart"></div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">🎓 Experience vs Education Matrix</div>
+                    <div id="experienceEducationMatrix"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let candidateData = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            document.getElementById('processJson').addEventListener('click', handleJsonInput);
+            
+            addSampleDataButton();
+        });
+
+        function addSampleDataButton() {
+            const uploadSection = document.querySelector('.upload-section');
+            const sampleButton = document.createElement('button');
+            sampleButton.innerHTML = '🔧 Load Sample Data (for testing)';
+            sampleButton.style.cssText = `
+                margin-top: 15px; 
+                padding: 10px 20px; 
+                background: rgba(247, 147, 30, 0.8); 
+                color: white; 
+                border: none; 
+                border-radius: 8px; 
+                cursor: pointer; 
+                font-weight: 600;
+                transition: all 0.3s ease;
+            `;
+            
+            sampleButton.addEventListener('click', loadSampleData);
+            sampleButton.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(247, 147, 30, 1)';
+                this.style.transform = 'translateY(-2px)';
+            });
+            sampleButton.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(247, 147, 30, 0.8)';
+                this.style.transform = 'translateY(0)';
+            });
+            
+            uploadSection.appendChild(sampleButton);
+        }
+
+        function loadSampleData() {
+            candidateData = [
+                {
+                    "Candidate ID": "CAND0001",
+                    "Full Name": "Alyssa Duarte",
+                    "Gender": "Female",
+                    "Age": 26,
+                    "Email": "alyssa@example.com",
+                    "Phone": "(275)800-7539x180",
+                    "Location": "New York",
+                    "Education Level": "PhD",
+                    "Experience (Years)": 9.8,
+                    "Department": "Finance",
+                    "Position Applied": "Financial Analyst",
+                    "Application Status": "Applied",
+                    "Application Date": 45519,
+                    "Expected Salary": 82421,
+                    "Current Employer": "Powers, Mann and Gutierrez"
+                },
+                {
+                    "Candidate ID": "CAND0002",
+                    "Full Name": "Mary Arnold",
+                    "Gender": "Female",
+                    "Age": 40,
+                    "Email": "mary@example.com",
+                    "Phone": "+1-275-881-5109",
+                    "Location": "Los Angeles",
+                    "Education Level": "Bachelor's",
+                    "Experience (Years)": 12.5,
+                    "Department": "IT",
+                    "Position Applied": "DevOps Engineer",
+                    "Application Status": "Interviewed",
+                    "Application Date": 45780,
+                    "Expected Salary": 67577,
+                    "Current Employer": "Wheeler Inc"
+                },
+                {
+                    "Candidate ID": "CAND0003",
+                    "Full Name": "John Smith",
+                    "Gender": "Male",
+                    "Age": 32,
+                    "Email": "john@example.com",
+                    "Phone": "+1-555-123-4567",
+                    "Location": "Chicago",
+                    "Education Level": "Master's",
+                    "Experience (Years)": 8.2,
+                    "Department": "Marketing",
+                    "Position Applied": "Marketing Manager",
+                    "Application Status": "Applied",
+                    "Application Date": 45600,
+                    "Expected Salary": 75000,
+                    "Current Employer": "ABC Corp"
+                }
+            ];
+            
+            document.getElementById('fileStatus').innerHTML = '✅ Sample data loaded successfully (3 candidates)';
+            generateDashboard();
+        }
+
+        function handleJsonInput() {
+            const jsonText = document.getElementById('jsonInput').value.trim();
+            if (!jsonText) {
+                showError('Please paste JSON data in the text area');
+                return;
+            }
+            
+            try {
+                const jsonData = JSON.parse(jsonText);
+                candidateData = Array.isArray(jsonData) ? jsonData : [jsonData];
+                
+                if (candidateData.length === 0) {
+                    throw new Error('No candidate data found');
+                }
+                
+                document.getElementById('fileStatus').innerHTML = `✅ Successfully processed ${candidateData.length} candidate records from text input`;
+                generateDashboard();
+                
+            } catch (error) {
+                showError('Error parsing JSON: ' + error.message);
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const fileStatus = document.getElementById('fileStatus');
+            
+            if (!file) {
+                fileStatus.textContent = 'No file selected';
+                return;
+            }
+
+            if (file.type !== 'application/json') {
+                showError('Please select a valid JSON file');
+                return;
+            }
+
+            fileStatus.innerHTML = '<div class="loading">📤 Processing file...</div>';
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    
+                    // Handle both single object and array formats
+                    candidateData = Array.isArray(jsonData) ? jsonData : [jsonData];
+                    
+                    if (candidateData.length === 0) {
+                        throw new Error('No candidate data found');
+                    }
+
+                    fileStatus.innerHTML = `✅ Successfully loaded ${candidateData.length} candidate records`;
+                    generateDashboard();
+                    
+                } catch (error) {
+                    showError('Error parsing JSON file: ' + error.message);
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('Error reading file');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function showError(message) {
+            const fileStatus = document.getElementById('fileStatus');
+            fileStatus.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        function generateDashboard() {
+            generateStats();
+            generateStatusFunnel();
+            generateSalaryScatter();
+            generateDepartmentChart();
+            generateGeoChart();
+            generateExperienceEducationMatrix();
+            
+            document.getElementById('dashboard').style.display = 'block';
+        }
+
+        function generateStats() {
+            const statsGrid = document.getElementById('statsGrid');
+            const totalCandidates = candidateData.length;
+            const avgSalary = Math.round(candidateData.reduce((sum, c) => sum + (c['Expected Salary'] || 0), 0) / totalCandidates);
+            const avgExperience = (candidateData.reduce((sum, c) => sum + (c['Experience (Years)'] || 0), 0) / totalCandidates).toFixed(1);
+            const interviewedCount = candidateData.filter(c => c['Application Status'] === 'Interviewed').length;
+            
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${totalCandidates}</div>
+                    <div class="stat-label">Total Candidates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$${avgSalary.toLocaleString()}</div>
+                    <div class="stat-label">Avg Expected Salary</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${avgExperience}</div>
+                    <div class="stat-label">Avg Experience (Years)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${interviewedCount}</div>
+                    <div class="stat-label">Interviewed</div>
+                </div>
+            `;
+        }
+
+        function generateStatusFunnel() {
+            const statusCounts = {};
+            candidateData.forEach(candidate => {
+                const status = candidate['Application Status'] || 'Unknown';
+                statusCounts[status] = (statusCounts[status] || 0) + 1;
+            });
+
+            const data = [{
+                type: 'funnel',
+                y: Object.keys(statusCounts),
+                x: Object.values(statusCounts),
+                textinfo: "value+percent initial",
+                marker: {
+                    color: ['#ff6b35', '#f7931e', '#ff8c42', '#ffb366']
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Recruitment Pipeline',
+                    font: { color: '#ff6b35' }
+                },
+                margin: { t: 50, b: 50, l: 50, r: 50 },
+                font: { family: 'Segoe UI', size: 12, color: '#ffffff' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('statusFunnel', data, layout, {responsive: true});
+        }
+
+        function generateSalaryScatter() {
+            const traces = {};
+            
+            candidateData.forEach(candidate => {
+                const dept = candidate.Department || 'Unknown';
+                if (!traces[dept]) {
+                    traces[dept] = {
+                        x: [],
+                        y: [],
+                        name: dept,
+                        mode: 'markers',
+                        type: 'scatter',
+                        marker: {
+                            size: 8,
+                            opacity: 0.7
+                        }
+                    };
+                }
+                traces[dept].x.push(candidate['Experience (Years)'] || 0);
+                traces[dept].y.push(candidate['Expected Salary'] || 0);
+            });
+
+            const data = Object.values(traces);
+            
+            const layout = {
+                title: {
+                    text: 'Salary Expectations vs Experience',
+                    font: { color: '#ff6b35' }
+                },
+                xaxis: { 
+                    title: 'Experience (Years)',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                yaxis: { 
+                    title: 'Expected Salary ($)',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                margin: { t: 50, b: 80, l: 80, r: 50 },
+                showlegend: true,
+                font: { family: 'Segoe UI', size: 12, color: '#ffffff' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                legend: { font: { color: '#ffffff' } }
+            };
+
+            Plotly.newPlot('salaryScatter', data, layout, {responsive: true});
+        }
+
+        function generateDepartmentChart() {
+            const deptCounts = {};
+            candidateData.forEach(candidate => {
+                const dept = candidate.Department || 'Unknown';
+                deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+            });
+
+            const data = [{
+                type: 'pie',
+                labels: Object.keys(deptCounts),
+                values: Object.values(deptCounts),
+                hole: 0.4,
+                marker: {
+                    colors: ['#ff6b35', '#f7931e', '#ff8c42', '#ffb366', '#ffc299', '#ffd1b3']
+                },
+                textinfo: 'label+percent',
+                textposition: 'auto'
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Candidates by Department',
+                    font: { color: '#ff6b35' }
+                },
+                margin: { t: 50, b: 50, l: 50, r: 50 },
+                font: { family: 'Segoe UI', size: 12, color: '#ffffff' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('departmentChart', data, layout, {responsive: true});
+        }
+
+        function generateGeoChart() {
+            const locationCounts = {};
+            candidateData.forEach(candidate => {
+                const location = candidate.Location || 'Unknown';
+                locationCounts[location] = (locationCounts[location] || 0) + 1;
+            });
+
+            const data = [{
+                type: 'bar',
+                x: Object.keys(locationCounts),
+                y: Object.values(locationCounts),
+                marker: {
+                    color: Object.values(locationCounts),
+                    colorscale: [
+                        [0, '#1a1a1a'],
+                        [0.5, '#ff6b35'],
+                        [1, '#f7931e']
+                    ],
+                    showscale: true
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Candidate Distribution by Location',
+                    font: { color: '#ff6b35' }
+                },
+                xaxis: { 
+                    title: 'Location',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                yaxis: { 
+                    title: 'Number of Candidates',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                margin: { t: 50, b: 100, l: 50, r: 50 },
+                font: { family: 'Segoe UI', size: 12, color: '#ffffff' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('geoChart', data, layout, {responsive: true});
+        }
+
+        function generateExperienceEducationMatrix() {
+            const educationLevels = [...new Set(candidateData.map(c => c['Education Level'] || 'Unknown'))];
+            const experienceRanges = ['0-2', '3-5', '6-10', '10+'];
+            
+            const matrix = [];
+            const annotations = [];
+
+            educationLevels.forEach((edu, i) => {
+                const row = [];
+                experienceRanges.forEach((range, j) => {
+                    let count = 0;
+                    candidateData.forEach(candidate => {
+                        if ((candidate['Education Level'] || 'Unknown') === edu) {
+                            const exp = candidate['Experience (Years)'] || 0;
+                            if ((range === '0-2' && exp <= 2) ||
+                                (range === '3-5' && exp >= 3 && exp <= 5) ||
+                                (range === '6-10' && exp >= 6 && exp <= 10) ||
+                                (range === '10+' && exp > 10)) {
+                                count++;
+                            }
+                        }
+                    });
+                    row.push(count);
+                    annotations.push({
+                        x: j,
+                        y: i,
+                        text: count.toString(),
+                        showarrow: false,
+                        font: { color: '#fffff', size: 16, weight: 'bold' }
+                    });
+                });
+                matrix.push(row);
+            });
+
+            const data = [{
+                z: matrix,
+                x: experienceRanges,
+                y: educationLevels,
+                type: 'heatmap',
+                colorscale: [
+                    [0, '#1a1a1a'],
+                    [0.3, '#2d2d2d'],
+                    [0.6, '#ff6b35'],
+                    [1, '#f7931e']
+                ],
+                showscale: true
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Experience vs Education Level Matrix',
+                    font: { color: '#ff6b35' }
+                },
+                xaxis: { 
+                    title: 'Experience Range (Years)',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                yaxis: { 
+                    title: 'Education Level',
+                    color: '#ffffff',
+                    gridcolor: 'rgba(255, 255, 255, 0.1)'
+                },
+                annotations: annotations,
+                margin: { t: 50, b: 80, l: 100, r: 50 },
+                font: { family: 'Segoe UI', size: 12, color: '#ffffff' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('experienceEducationMatrix', data, layout, {responsive: true});
+        }
+    </script>
+</body>
+</html>
